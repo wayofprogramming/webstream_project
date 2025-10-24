@@ -1,39 +1,51 @@
 import fetch from 'node-fetch';
 import cheerio from 'cheerio';
 import { base64Decode } from '../utils/base64';
+import { LoadResponse, EpisodeLink } from '../types';
 
-interface EpisodeLink {
-  source: string;
+interface CinemetaMeta {
+  name?: string;
+  description?: string;
+  poster?: string;
+  background?: string;
+  cast?: string[];
+  genre?: string[];
+  imdbRating?: string;
+  year?: string;
+  videos?: EpisodeDetails[];
 }
 
-interface LoadResponse {
-  title: string;
-  posterUrl: string;
-  plot: string;
-  year?: string;
-  tags?: string[];
-  sources: { url: string; quality?: string }[];
-  episodes?: { season: number; episode: number; title?: string; sources: EpisodeLink[] }[];
+interface EpisodeDetails {
+  season?: number;
+  episode?: number;
+  title?: string;
+  name?: string;
+  overview?: string;
+  thumbnail?: string;
+}
+
+interface CinemetaResponse {
+  meta?: CinemetaMeta;
 }
 
 export const bollyflixPlugin = {
   id: 'bollyflix',
   name: 'BollyFlix',
   mainUrl: 'https://bollyflix.promo',
+  lang: 'hi',
 
-  search: async (query: string) => {
+  search: async (query: string): Promise<any[]> => {
     const res = await fetch(`${bollyflixPlugin.mainUrl}/search/${encodeURIComponent(query)}/page/1/`);
     const html = await res.text();
     const $ = cheerio.load(html);
 
-    const results = [];
-    $('div.post-cards > article').each((i, el) => {
+    const results: any[] = [];
+    $('div.post-cards > article').each((i: number, el: any) => {
       const title = $(el).find('a').attr('title')?.replace('Download ', '') || '';
       const url = $(el).find('a').attr('href') || '';
       const poster = $(el).find('img').attr('src') || '';
       results.push({ id: url, title, url, poster });
     });
-
     return results;
   },
 
@@ -42,12 +54,27 @@ export const bollyflixPlugin = {
     const html = await res.text();
     const $ = cheerio.load(html);
 
-    const title = $('title').text().replace('Download ', '');
-    const posterUrl = $('meta[property="og:image"]').attr('content') || '';
-    const plot = $('span#summary').text() || '';
-
-    // Determine type: movie or series
+    let title = $('title').text().replace('Download ', '');
+    let posterUrl = $('meta[property="og:image"]').attr('content') || '';
+    let plot = $('span#summary').text() || '';
+    const imdbUrl = $('div.imdb_left > a').attr('href') || '';
     const isSeries = url.includes('web-series') || title.toLowerCase().includes('series');
+
+    // Fetch Cinemeta metadata if IMDb available
+    let metaData: CinemetaMeta = {};
+    if (imdbUrl) {
+      try {
+        const imdbId = imdbUrl.split('/title/')[1]?.split('/')[0];
+        const tvtype = isSeries ? 'series' : 'movie';
+        const cinemetaRes = await fetch(`https://v3-cinemeta.strem.io/meta/${tvtype}/${imdbId}.json`);
+        const cinemetaJson: CinemetaResponse = await cinemetaRes.json();
+        if (cinemetaJson.meta) metaData = cinemetaJson.meta;
+      } catch (e) { console.warn('Cinemeta fetch failed', e); }
+    }
+
+    title = metaData.name || title;
+    plot = metaData.description || plot;
+    posterUrl = metaData.poster || posterUrl;
 
     if (!isSeries) {
       // Movie: extract download links
@@ -56,39 +83,29 @@ export const bollyflixPlugin = {
         const id = $(el).attr('href')?.split('id=')[1];
         if (id) sources.push({ source: base64Decode(id) });
       });
-
-      return { title, posterUrl, plot, sources };
+      const movieSources = sources.map(s => ({ url: s.source, quality: 'HD' }));
+      return { title, posterUrl, plot, sources: movieSources };
     } else {
-      // Series: extract episodes by season
-      const episodes: { season: number; episode: number; title?: string; sources: EpisodeLink[] }[] = [];
-      const seasonElements = $('a.maxbutton-download-links, a.dl');
+      // Series: extract seasons and episodes
+      const episodes: { season: number; episode: number; title?: string; sources: { url: string }[] }[] = [];
 
-      for (let i = 0; i < seasonElements.length; i++) {
-        const el = seasonElements[i];
+      $('a.maxbutton-download-links, a.dl').each((i, el) => {
         const id = $(el).attr('href')?.split('id=')[1];
-        if (!id) continue;
+        if (!id) return;
 
-        // Extract season number from previous sibling
-        const seasonText = $(el).parent().prev().text() || '';
-        const season = parseInt((seasonText.match(/(?:Season |S)(\d+)/) || ['0', '0'])[1]);
+        const seasonText = $(el).parent()?.prev()?.text() || '';
+        const season = +(seasonText.match(/(?:Season |S)(\d+)/)?.[1] || 1);
+        const episodeNum = i + 1; // fallback
+        const urlDecoded = base64Decode(id);
 
-        const decodedUrl = base64Decode(id);
-        const seasonHtml = await fetch(decodedUrl).then(r => r.text());
-        const $$ = cheerio.load(seasonHtml);
-        const epLinks: EpisodeLink[] = [];
-
-        $$('h3 > a').each((j, link) => {
-          if (!$(link).text().toLowerCase().includes('zip')) {
-            epLinks.push({ source: $(link).attr('href') || '' });
-          }
+        episodes.push({
+          season,
+          episode: episodeNum,
+          sources: [{ url: urlDecoded }]
         });
+      });
 
-        epLinks.forEach((source, epIdx) => {
-          episodes.push({ season, episode: epIdx + 1, sources: [source] });
-        });
-      }
-
-      return { title, posterUrl, plot, episodes };
+      return { title, posterUrl, plot, sources: [], episodes };
     }
   }
 };

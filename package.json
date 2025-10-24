@@ -1,11 +1,17 @@
 {
   "devDependencies": {
     "@types/cors": "^2.8.19",
-    "@types/morgan": "^1.9.10"
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^24.9.1",
+    "@types/node-fetch": "^2.6.13",
+    "typescript": "^5.9.3"
   },
-"scripts": {
-  "build": "tsc",
-  "start": "node dist/server.js",
-  "dev": "ts-node-dev src/server.ts"
-}
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev src/server.ts"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
 }
