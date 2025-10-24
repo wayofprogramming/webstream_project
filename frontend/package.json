@@ -12,6 +12,9 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "swr": "2.1.1",
-    "hls.js": "1.4.0"
+    "hls.js": "1.4.0",
+    "typescript": "^5.4.0",
+    "@types/react": "^18.2.15",
+    "@types/node": "^20.11.10"
   }
 }
