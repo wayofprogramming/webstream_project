@@ -10,6 +10,7 @@ router.get('/', async (req, res) => {
 
   const results: any[] = [];
   const pluginIds = Object.keys(plugins);
+
   for (const id of pluginIds) {
     const p = plugins[id];
     try {
@@ -21,11 +22,19 @@ router.get('/', async (req, res) => {
       }
     } catch (e: unknown) {
       if (e instanceof Error) {
-        console.error(e.message);
+        console.error(`Plugin ${id} error:`, e.message);
       }
     }
-
   }
+
+  // Add demo fallback if no results
+  if (results.length === 0) {
+    results.push(
+      { _plugin: 'demo', id: 1, title: 'Demo Movie 1', url: 'https://sample-videos.com/video123.mp4' },
+      { _plugin: 'demo', id: 2, title: 'Demo Movie 2', url: 'https://sample-videos.com/video456.mp4' }
+    );
+  }
+
   res.json(results);
 });
 
