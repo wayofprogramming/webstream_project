@@ -10,7 +10,9 @@ import linksRoute from './routes/links';
 
 const app = express();
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: '*'  // for testing, allow all. Later you can restrict to your frontend URL
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 
