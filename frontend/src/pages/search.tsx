@@ -5,18 +5,23 @@ import Link from 'next/link';
 
 const fetcher = (url:string) => fetch(url).then(r=>r.json());
 
-export default function Search(){
+export default function Search() {
   const [q, setQ] = useState('');
-  const { data, error } = useSWR(q? `/api/proxy/search?q=${encodeURIComponent(q)}` : null, fetcher);
+  const backendURL = process.env.NEXT_PUBLIC_API_URL;
+
+  const { data, error } = useSWR(
+    q ? `${backendURL}/api/search?q=${encodeURIComponent(q)}` : null,
+    fetcher
+  );
 
   return (
-    <main style={{padding:20}}>
+    <main style={{ padding: 20 }}>
       <h1>Search</h1>
       <SearchBar onSearch={setQ} />
       {error && <div>Error loading</div>}
       <ul>
-        {data && data.map((it:any)=> (
-          <li key={it.id} style={{margin:10}}>
+        {data && data.map((it:any) => (
+          <li key={it.id} style={{ margin: 10 }}>
             <img src={it.poster} width={80} alt="" />
             <div>{it.title} <small>({it._plugin})</small></div>
             <Link href={`/watch/${encodeURIComponent(it._plugin + '::' + it.id)}`}>Watch</Link>
