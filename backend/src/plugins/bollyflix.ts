@@ -107,5 +107,5 @@ export const bollyflixPlugin = {
 
       return { title, posterUrl, plot, sources: [], episodes };
     }
-  }
+  } 
 };
