@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
+
 // Exported registry
 export const plugins: Record<string, any> = {};
 
